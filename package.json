@@ -1,0 +1,20 @@
+{
+  "name": "netpulse",
+  "productName": "NetPulse",
+  "version": "1.0.0",
+  "description": "Live network observability - latency, download, upload, jitter, loss, bufferbloat, DNS, MTU and link diagnostics",
+  "main": "src/main/index.js",
+  "author": "ryomen",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "selftest": "node scripts/selftest.js",
+    "selftest:json": "node scripts/selftest.js --json",
+    "qa": "electron . --qa",
+    "fix-electron": "node scripts/ensure-electron.js"
+  },
+  "devDependencies": {
+    "electron": "31.7.7"
+  }
+}

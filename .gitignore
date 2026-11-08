@@ -1,0 +1,11 @@
+node_modules/
+data/samples-*.jsonl
+data/events.jsonl
+data/reports/
+data/settings.json
+data/qa/
+backups/
+design/blueprints/out/
+*.log
+.DS_Store
+Thumbs.db

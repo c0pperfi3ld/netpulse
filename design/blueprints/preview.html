@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>NetPulse gadget — live blueprint preview</title>
+<style>
+  /* Wrapper only. Stacked vertically and capped at 560 px so the widget never
+     needs a horizontal scrollbar; each mockup paints its own desktop backdrop
+     inside its frame, so this page stays transparent. */
+  body{margin:0;font:12px/1.5 system-ui,sans-serif;color:var(--muted-foreground);max-width:560px}
+  .frame{position:relative;width:max-content}
+  .frame iframe{display:block;border:0;width:460px;height:272px}
+  .frame.compact iframe{width:396px;height:200px}
+  .frame.expanded iframe{width:560px;height:340px}
+  .cap{margin:5px 0 16px;font-size:10.5px;letter-spacing:.04em}
+  .cap b{color:var(--foreground);font-weight:600}
+  .hint{margin:0;font-size:10.5px}
+</style>
+</head>
+<body>
+    <div class="frame standard">
+      <iframe src="gadget-blueprint.html?mode=standard" title="Standard gadget"></iframe>
+      <p class="cap"><b>Standard</b> 460 × 272 — default</p>
+    </div>
+    <div class="frame expanded">
+      <iframe src="gadget-blueprint.html?mode=expanded&end=test" title="Expanded gadget"></iframe>
+      <p class="cap"><b>Expanded</b> 560 × 340 — busy / under test</p>
+    </div>
+    <div class="frame compact">
+      <iframe src="gadget-blueprint.html?mode=compact" title="Compact gadget"></iframe>
+      <p class="cap"><b>Compact</b> 396 × 200</p>
+    </div>
+  <p class="hint">Live mockups — hover the chart for the crosshair readout, click a legend chip to isolate a series. Data is simulated with a fixed seed (no app code touched).</p>
+</body>
+</html>

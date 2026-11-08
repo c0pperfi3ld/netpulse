@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>NetPulse gadget blueprint</title>
+<style>
+  /* ------------------------------------------------------------------ tokens
+     Copied verbatim from src/renderer/styles/tokens.css so this blueprint and
+     the shipped CSS cannot drift. Three new tokens are proposed (marked NEW). */
+  :root{
+    --bg-0:#05080f; --bg-1:#070b14; --bg-2:#0b1220;
+    --panel:rgba(18,26,43,.62); --panel-strong:rgba(22,32,52,.86);
+    --panel-brd:rgba(120,160,220,.14); --panel-brd-strong:rgba(140,180,240,.26);
+    --txt-0:#eaf1ff; --txt-1:#b7c6e0; --txt-2:#7d8caa;
+    --ok:#34d399; --warn:#fbbf24; --bad:#fb7185;
+    --accent:#4dd4ff; --accent-soft:rgba(77,212,255,.14); --accent-glow:rgba(77,212,255,.42);
+    --mono:ui-monospace,"SF Mono","Cascadia Mono","JetBrains Mono",Consolas,monospace;
+    --sans:"Segoe UI Variable Text","Segoe UI",Inter,system-ui,sans-serif;
+    --shadow:0 18px 42px rgba(0,0,0,.42);
+    --dur:220ms;
+    /* NEW series tokens — color-blind-safe triple + loss marker */
+    --series-down:#4dd4ff;
+    --series-up:#34d399;
+    --series-lat:#a78bfa;
+    --series-jit:#fbbf24;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  /* Desktop stand-in: proves the window is a floating glass object, not a page. */
+  body{
+    font-family:var(--sans);
+    color:var(--txt-0);
+    display:grid; place-items:center;
+    background:
+      radial-gradient(680px 420px at 18% 12%, #1b2f52 0%, transparent 62%),
+      radial-gradient(760px 520px at 82% 88%, #2a1c46 0%, transparent 60%),
+      linear-gradient(140deg,#0a0f1c 0%,#080b14 55%,#0c0f18 100%);
+  }
+  body.plate{background:#0b0f18;display:flex;gap:20px;align-items:flex-start;justify-content:center;padding:26px}
+  /* Blueprint sheet: spec column rendered beside the mock window. */
+  .spec{width:300px;border:1px solid rgba(120,160,220,.18);border-radius:12px;padding:12px 14px;
+    background:linear-gradient(180deg,rgba(16,24,40,.8),rgba(9,13,23,.75));font-family:var(--mono)}
+  .spec h4{margin:0 0 8px;font:600 10px/1.3 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:#8fe6ff}
+  .spec h4 + h4{margin-top:14px}
+  .spec table{width:100%;border-collapse:collapse;font-size:9.5px}
+  .spec td{padding:2.5px 0;vertical-align:top;color:var(--txt-2)}
+  .spec td:first-child{color:var(--txt-1);white-space:nowrap;padding-right:10px}
+  .spec code{color:#a9e8ff;background:rgba(120,220,255,.08);padding:0 3px;border-radius:3px}
+  .sw2{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+
+  /* ------------------------------------------------------------------ window */
+  .win{
+    position:relative;
+    display:grid;
+    /* minmax(0,1fr): an implicit `auto` column takes its max-content width from
+       the widest row, so one long nowrap sub-line pushes every row — the graph
+       canvas included — wider than the window and the right axis gutter gets
+       clipped away. Clamp the column and let the rows ellipsize instead. */
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:26px auto 1fr;
+    border-radius:14px;
+    border:1px solid var(--panel-brd-strong);
+    background:
+      radial-gradient(420px 200px at 8% -30%, var(--accent-soft), transparent 70%),
+      linear-gradient(180deg, rgba(16,24,40,.86), rgba(8,12,22,.92));
+    box-shadow:0 26px 64px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.03) inset, 0 1px 0 rgba(255,255,255,.06) inset;
+    backdrop-filter:blur(18px) saturate(150%);
+    overflow:hidden;
+    -webkit-app-region:drag;
+  }
+  .win[data-size="standard"]{width:460px;height:272px}
+  .win[data-size="compact"]{width:396px;height:200px;grid-template-rows:24px auto 1fr}
+  .win[data-size="expanded"]{width:560px;height:340px}
+  .win.light{
+    --panel-brd-strong:rgba(60,90,140,.22); --txt-0:#0d1626; --txt-1:#3c4c68; --txt-2:#6b7c99;
+    border-color:rgba(40,70,120,.18);
+    background:radial-gradient(420px 200px at 8% -30%, rgba(77,212,255,.16), transparent 70%),
+      linear-gradient(180deg, rgba(255,255,255,.92), rgba(240,245,255,.88));
+    box-shadow:0 26px 64px rgba(20,40,80,.22), 0 1px 0 rgba(255,255,255,.8) inset;
+  }
+
+  /* ------------------------------------------------------------------ titlebar */
+  .bar{display:flex;align-items:center;gap:7px;padding:0 8px;user-select:none}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px var(--accent-soft);animation:pulse 2.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 2px var(--accent-soft)}50%{box-shadow:0 0 0 6px transparent}}
+  .name{font-size:11.5px;font-weight:600;letter-spacing:.05em;color:var(--txt-1)}
+  .pill{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt-2);
+    border:1px solid var(--panel-brd);border-radius:999px;padding:1px 6px 0;background:rgba(120,160,220,.06)}
+  .spacer{margin-left:auto}
+  .actions{display:flex;gap:3px;-webkit-app-region:no-drag}
+  .btn{width:23px;height:21px;display:grid;place-items:center;border-radius:6px;border:1px solid var(--panel-brd);
+    background:rgba(140,180,240,.07);color:var(--txt-1);font-size:10.5px;line-height:1;cursor:default}
+  .btn.on{color:var(--accent);border-color:var(--accent-soft);background:var(--accent-soft);box-shadow:0 0 14px var(--accent-soft)}
+  .btn.close:hover{color:var(--bad)}
+
+  /* ------------------------------------------------------------------ hero row */
+  .hero{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:3px 12px 7px}
+  .hero.v4{grid-template-columns:repeat(4,1fr)}
+  .h{position:relative;display:flex;flex-direction:column;gap:1px;padding:5px 8px 7px;border-radius:9px;
+    border:1px solid var(--panel-brd);background:linear-gradient(180deg,rgba(20,29,48,.5),rgba(12,18,30,.28));
+    overflow:hidden;cursor:default;min-width:0}
+  .h::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--c);opacity:.85;
+    box-shadow:0 0 12px var(--c)}
+  .h .k{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--txt-2)}
+  .h .row{display:flex;align-items:baseline;gap:3px}
+  .h .v{font-family:var(--mono);font-weight:600;font-size:23px;line-height:1.05;color:var(--c);
+    text-shadow:0 0 18px color-mix(in srgb,var(--c) 45%,transparent);font-variant-numeric:tabular-nums}
+  .h .u{font-size:9.5px;color:var(--txt-2);letter-spacing:.04em}
+  .h .sub{font-size:9.2px;color:var(--txt-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-variant-numeric:tabular-nums}
+  .h .sub b{color:var(--txt-1);font-weight:600}
+  .h.busy{border-color:color-mix(in srgb,var(--c) 40%,transparent);box-shadow:inset 0 0 26px color-mix(in srgb,var(--c) 12%,transparent)}
+  .win[data-size="compact"] .h .v{font-size:19px}
+  .win[data-size="compact"] .hero{gap:7px;padding:2px 10px 6px}
+  .win[data-size="compact"] .h{padding:4px 7px 6px}
+  /* Compact trades the sub-line for graph height: the graph is the point of the
+     gadget, and the unit label stays so a bare number is never ambiguous. */
+  .win[data-size="compact"] .h .sub{display:none}
+  .win[data-size="compact"] .strip{display:none}
+
+  /* ------------------------------------------------------------------ graph */
+  .graph{position:relative;margin:0 10px 8px;min-height:0}
+  .gwrap{position:relative;height:100%;border-radius:10px;border:1px solid var(--panel-brd);
+    background:linear-gradient(180deg,rgba(14,21,36,.46),rgba(9,13,23,.22));overflow:hidden}
+  canvas{display:block;width:100%;height:100%;background:transparent}
+  .legend{position:absolute;top:4px;left:34px;display:flex;gap:10px;z-index:3;pointer-events:auto}
+  .lg{display:flex;align-items:center;gap:4px;font-size:9.5px;color:var(--txt-1);
+    font-variant-numeric:tabular-nums;cursor:default;padding:1px 4px;border-radius:5px;border:1px solid transparent}
+  .lg .sw{width:12px;height:2.5px;border-radius:2px;background:var(--c);box-shadow:0 0 8px var(--c)}
+  .lg.dash .sw{background:repeating-linear-gradient(90deg,var(--c) 0 3px,transparent 3px 6px);box-shadow:none}
+  .lg .val{font-family:var(--mono);color:var(--txt-0)}
+  .lg:hover{border-color:var(--panel-brd);background:rgba(120,160,220,.08)}
+  .lg.off{opacity:.35}
+  /* State flag (not a series): dashed amber band swatch, no hover, no toggle. */
+  .lg.state{color:var(--warn);gap:5px}
+  .lg.state .sw.band{width:13px;height:9px;border-radius:2px;box-shadow:none;
+    background:repeating-linear-gradient(90deg,rgba(251,191,36,.5) 0 2px,transparent 2px 5px);
+    border:1px dashed rgba(251,191,36,.45)}
+  /* Optional chips: only the expanded size has the width for them. */
+  .chip.opt{display:none}
+  .win[data-size="expanded"] .chip.opt{display:flex}
+  .axes{position:absolute;inset:0;pointer-events:none}
+
+  /* ------------------------------------------------------------------ micro strip */
+  .strip{display:flex;gap:5px;padding:0 10px 9px;align-items:center}
+  .chip{display:flex;align-items:center;gap:4px;font-size:9.5px;color:var(--txt-2);
+    border:1px solid var(--panel-brd);border-radius:999px;padding:2px 7px;background:rgba(120,160,220,.05);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .chip b{font-family:var(--mono);color:var(--txt-0);font-weight:600}
+  .chip.good b{color:var(--ok)} .chip.warn b{color:var(--warn)} .chip.bad b{color:var(--bad)}
+  .ring{width:15px;height:15px;border-radius:50%;background:conic-gradient(var(--ok) calc(var(--p)*1%),rgba(120,160,220,.16) 0)}
+
+  /* ------------------------------------------------------------------ annotation overlay */
+  .annot{position:absolute;inset:0;pointer-events:none;z-index:9}
+  .measure{position:absolute;border-left:1px dashed rgba(77,212,255,.55);border-right:1px dashed rgba(77,212,255,.55);height:0}
+  .measure::after{content:attr(data-l);position:absolute;left:50%;top:-8px;transform:translateX(-50%);
+    font:600 8.5px/1 var(--mono);color:#8fe6ff;background:#08111dcc;padding:2px 4px;border-radius:4px;white-space:nowrap}
+  .tag{position:absolute;font:600 8.5px/1.25 var(--mono);color:#ffd7a1;background:#1a1206cc;
+    border:1px solid rgba(255,190,120,.4);padding:3px 5px;border-radius:5px;max-width:190px}
+  .tag b{color:#ffe9c9}
+  .tag.cy{color:#a9e8ff;background:#04141fcc;border-color:rgba(120,220,255,.42)}
+  .tag.cy b{color:#d8f4ff}
+  .lead{position:absolute;height:1px;background:linear-gradient(90deg,rgba(255,190,120,.75),rgba(255,190,120,.15))}
+  .lead.cy{background:linear-gradient(90deg,rgba(120,220,255,.75),rgba(120,220,255,.15))}
+</style>
+</head>
+<body>
+  <div class="win" id="win" data-size="standard">
+    <header class="bar" id="bar">
+      <span class="dot"></span><strong class="name">NetPulse</strong>
+      <span class="pill" id="state">live</span>
+      <span class="spacer"></span>
+      <div class="actions">
+        <button class="btn" title="Run speed test">⇅</button>
+        <button class="btn" title="Pause / resume">⏸</button>
+        <button class="btn" title="Always on top">⌖</button>
+        <button class="btn" title="Size: compact / standard / expanded">▤</button>
+        <button class="btn" title="Back to dashboard">⤢</button>
+        <button class="btn close" title="Close">✕</button>
+      </div>
+    </header>
+
+    <section class="hero" id="hero">
+      <div class="h" style="--c:var(--series-down)" id="h-down">
+        <span class="k">Download</span>
+        <span class="row"><span class="v" id="v-down">118</span><span class="u" id="u-down">Mbps</span></span>
+        <span class="sub" id="s-down">live · <b>14.75 MB/s</b> · peak 940</span>
+      </div>
+      <div class="h" style="--c:var(--series-up)" id="h-up">
+        <span class="k">Upload</span>
+        <span class="row"><span class="v" id="v-up">9.6</span><span class="u" id="u-up">Mbps</span></span>
+        <span class="sub" id="s-up">live · <b>1.20 MB/s</b> · test 402</span>
+      </div>
+      <div class="h" style="--c:var(--series-lat)" id="h-lat">
+        <span class="k">Latency</span>
+        <span class="row"><span class="v" id="v-lat">14.2</span><span class="u">ms</span></span>
+        <span class="sub" id="s-lat">avg <b>15.1</b> · jit <b>1.4</b> · 0.0% loss</span>
+      </div>
+      <div class="h" style="--c:var(--series-jit);display:none" id="h-fourth">
+        <span class="k">Jitter</span>
+        <span class="row"><span class="v" id="v-jit">1.4</span><span class="u">ms</span></span>
+        <span class="sub" id="s-jit">p95 <b>3.1</b> · σ 0.8</span>
+      </div>
+    </section>
+
+    <section class="graph" id="graphsec">
+      <div class="gwrap">
+        <div class="legend" id="legend"></div>
+        <canvas id="cv"></canvas>
+      </div>
+    </section>
+
+    <section class="strip" id="strip">
+      <span class="chip good"><span class="ring" style="--p:92"></span>Quality <b>92</b> · grade A</span>
+      <span class="chip">DNS <b>11.3</b> ms</span>
+      <span class="chip warn">Bufferbloat <b>+24</b> ms · grade B</span>
+      <span class="chip">Link <b>38%</b> of plan</span>
+      <span class="chip opt">Top app <b>chrome</b></span>
+    </section>
+    <div class="annot" id="annot"></div>
+  </div>
+
+<script>
+/* ============================================================================
+   Blueprint graph engine. This is a faithful prototype of the proposed
+   NP.MultiPulse canvas class: ONE canvas, transparent background, overlapping
+   series, dual auto-scaled axes, gap-aware (no fake interpolation), hover
+   crosshair, click-to-isolate legend. Lift into src/renderer/js/charts.js.
+   ========================================================================== */
+const Q = new URLSearchParams(location.search);
+const MODE = Q.get('mode') || 'standard';
+const LIGHT = Q.has('light');
+const ANNOT = Q.has('annot');
+const FOURTH = MODE === 'expanded';
+
+const win = document.getElementById('win');
+win.dataset.size = MODE;
+if (LIGHT) win.classList.add('light');
+document.body.classList.toggle('plate', ANNOT);
+
+const SERIES = [
+  { key:'down', label:'DOWN', color:'var(--series-down)', raw:'#4dd4ff', dash:null,      fill:true  },
+  { key:'up',   label:'UP',   color:'var(--series-up)',   raw:'#34d399', dash:null,      fill:true  },
+  { key:'lat',  label:'LAT',  color:'var(--series-lat)',  raw:'#a78bfa', dash:[3,3],     fill:false },
+];
+if (FOURTH) SERIES.push({ key:'jit', label:'JIT', color:'var(--series-jit)', raw:'#fbbf24', dash:[1,3], fill:false });
+
+/* ---------------------------------------------------------------- simulation
+   Deterministic, fixed seed: the same shot every run. Shape mirrors what the
+   real feeds produce — linkRate down/up sampled at 1 Hz by PDH counters, and
+   one latency probe per second with a deliberate under-load spike (the window
+   a speed test saturates the line) plus two dropped probes at t=-38 and -37. */
+const WINDOW_S = 60, STEP = 1000;
+let seed = 20261107;
+const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+const now = Date.now();
+const t0 = now - WINDOW_S * 1000;
+/* One dropped probe at -38 s: the graph must show a gap, not a bridged line. */
+const LOSSES = new Set([-38]);
+/* `?end=test` leaves a speed test still running at t=0, so that shot shows the
+   busy state (hero glow, saturated-link latency) instead of the idle tail. */
+const TEST_FROM = Q.get('end') === 'test' ? -34 : -26;
+const TEST_TO   = Q.get('end') === 'test' ? 0 : -4;
+
+const feed = { down:[], up:[], lat:[], jit:[] };
+for (let i = 0; i <= WINDOW_S; i++) {
+  const t = t0 + i * STEP, sec = i - WINDOW_S;      // sec: -60 .. 0
+  const inTest = sec >= TEST_FROM && sec <= TEST_TO;   // a speed test ran here
+  const ramp = inTest ? Math.min(1, (sec - TEST_FROM) / 5) * (sec > TEST_TO - 6 ? .72 : 1) : 0;
+  // Idle phase is offset so no shot ever lands on a sine trough and headlines a
+  // near-zero rate for a desktop that is plainly moving traffic.
+  const idle = 4.2 + 1.9 * Math.sin(i / 5.5 + 1.1) + (rnd() - .5) * 1.4;
+  const downMbps = inTest ? idle + ramp * 900 + (rnd() - .5) * 26 : Math.max(1.2, idle);
+  // Upload phase starts after the download ramp and ends before the test does.
+  const upWin = sec >= TEST_FROM + 1 && sec <= TEST_TO - 9;
+  const upMbps = upWin
+    ? 120 + ramp * 320 + (rnd() - .5) * 18
+    : Math.max(.2, .9 + Math.abs(Math.sin(i / 7)) * 1.4 + (rnd() - .5) * .4);
+  const base = 13.4 + 1.35 * Math.sin(i / 9) + (rnd() - .5) * 1.1;
+  // Bufferbloat: latency under a saturated link, decaying after the test ends.
+  const bloat = inTest ? Math.min(58, 6 + (sec - TEST_FROM) * 2.1)
+                       : sec > TEST_TO ? Math.max(0, 1 - (sec - TEST_TO) / -8) * 9 : 0;
+  const rtt = LOSSES.has(sec) ? null : base + bloat;
+  feed.down.push([t, downMbps]); feed.up.push([t, upMbps]);
+  feed.lat.push([t, rtt, LOSSES.has(sec) ? 1 : 0]);
+  feed.jit.push([t, (LOSSES.has(sec) ? null : 1.1 + Math.abs(Math.sin(i / 6)) * .9 + (rnd() - .5) * .5)]);
+}
+/* Reference lines: last officially measured test result (peak-hold), so live
+   traffic is always compared against proven capacity, not against nothing. */
+const REF = { down: 940.2, up: 402.6 };
+
+/* Headline numbers are derived from the tail of the same feed the graph draws,
+   so the hero can never contradict the chart. */
+const lastOf = (k) => { const a = feed[k]; for (let i = a.length - 1; i >= 0; i--) if (a[i][1] != null) return a[i][1]; return null; };
+const statsOf = (k) => {
+  const v = feed[k].map((p) => p[1]).filter((x) => x != null);
+  const avg = v.reduce((s, x) => s + x, 0) / v.length;
+  const sd = Math.sqrt(v.reduce((s, x) => s + (x - avg) ** 2, 0) / v.length);
+  return { avg, sd };
+};
+const LOSS_PCT = (feed.lat.filter((p) => p[2] === 1).length / feed.lat.length) * 100;
+/* Jitter uses the application's own definition — the mean absolute delta between
+   consecutive probes — not the spread of the whole window (which would report a
+   bufferbloat ramp as "jitter" and overstate it). */
+function jitterOf(){
+  const d = [];
+  for (let i = 1; i < feed.lat.length; i++){
+    const a = feed.lat[i - 1][1], b = feed.lat[i][1];
+    if (a != null && b != null) d.push(Math.abs(b - a));
+  }
+  const mean = d.reduce((s, x) => s + x, 0) / d.length;
+  const sd = Math.sqrt(d.reduce((s, x) => s + (x - mean) ** 2, 0) / d.length);
+  const sorted = [...d].sort((x, y) => x - y);
+  return { mean, sd, p95: sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * .95))] };
+}
+const JIT = jitterOf();
+const HEAD = {
+  down: lastOf('down'), up: lastOf('up'), lat: lastOf('lat'),
+  latAvg: statsOf('lat').avg, jit: JIT.mean, jitSd: JIT.sd, jitP95: JIT.p95,
+};
+
+/* ------------------------------------------------------------------- helpers */
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+function niceMax(v){
+  if (!isFinite(v) || v <= 0) return 10;
+  const e = Math.pow(10, Math.floor(Math.log10(v))); const m = v / e;
+  return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * e;
+}
+function smoothPath(ctx, pts){
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 0; i < pts.length - 1; i++){
+    const p = pts[i], n = pts[i + 1];
+    const mx = (p[0] + n[0]) / 2;
+    ctx.bezierCurveTo(mx, p[1], mx, n[1], n[0], n[1]);
+  }
+}
+function cssVar(name){ return getComputedStyle(win).getPropertyValue(name).trim(); }
+function alpha(hex, a){
+  const h = (hex || '#4dd4ff').replace('#','');
+  const n = parseInt(h.length === 3 ? h.split('').map(c=>c+c).join('') : h, 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+
+const state = { hidden:new Set(), hoverX:null, layout:{}, smooth:{ left:0, right:0 } };
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+function draw(){
+  const wrap = cv.parentElement.getBoundingClientRect();
+  const w = Math.max(40, wrap.width), h = Math.max(30, wrap.height);
+  cv.width = Math.round(w * DPR); cv.height = Math.round(h * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, w, h);                     // <- transparent background, no fill
+
+  const padL = 30, padR = 36, padT = 22, padB = 15;
+  const x0 = padL, x1 = w - padR - 3, y0 = padT, y1 = h - padB;
+  const tMax = now, tMin = t0, X = (t) => x0 + ((t - tMin) / (tMax - tMin)) * (x1 - x0);
+
+  /* --- dual auto-scale, EMA-smoothed + snapped to 1/2/5 so the axis cannot
+         breathe frame to frame (a jittering axis reads as noise, not data). */
+  const vis = (k) => SERIES.find(s => s.key === k && !state.hidden.has(k));
+  const maxOf = (k) => { let m = 0; for (const p of feed[k]) if (p[1] != null && p[1] > m) m = p[1]; return m; };
+  const wantL = niceMax(Math.max(maxOf('down'), maxOf('up'), REF.down / 8) * 1.08);
+  const wantR = niceMax(Math.max(maxOf('lat'), maxOf('jit'), 20) * 1.15);
+  state.smooth.left = state.smooth.left ? state.smooth.left * .78 + wantL * .22 : wantL;
+  state.smooth.right = state.smooth.right ? state.smooth.right * .78 + wantR * .22 : wantR;
+  const maxL = niceMax(state.smooth.left), maxR = niceMax(state.smooth.right);
+  const Y = (v, m) => y1 - (Math.max(0, Math.min(v, m)) / m) * (y1 - y0);
+
+  /* --- grid. Throughput scale lives in the LEFT gutter, latency scale in the
+         RIGHT one: two axes, two sides, no ambiguity about which number is which. */
+  ctx.lineWidth = 1;
+  ctx.font = '600 9px var(--mono)';
+  for (let i = 0; i <= 4; i++){
+    const y = y0 + (i / 4) * (y1 - y0);
+    ctx.strokeStyle = i === 4 ? 'rgba(200,225,255,.20)' : 'rgba(120,160,220,.10)';
+    ctx.beginPath(); ctx.moveTo(x0, y + .5); ctx.lineTo(x1, y + .5); ctx.stroke();
+    ctx.fillStyle = 'rgba(200,225,255,.55)'; ctx.textAlign = 'right';
+    ctx.fillText(String(Math.round(maxL - (i / 4) * maxL)), x0 - 5, y + 3);
+    ctx.fillStyle = 'rgba(167,139,250,.62)'; ctx.textAlign = 'left';
+    ctx.fillText(String(Math.round(maxR - (i / 4) * maxR)), x1 + 5, y + 3);
+  }
+  // Unit labels sit horizontally at the top of each gutter, above the first tick
+  // number: a rotated label at mid-height collides with the 1·10ⁿ tick there.
+  ctx.font = '600 8.5px var(--mono)';
+  ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(200,225,255,.45)';
+  ctx.fillText('Mbps', x0 - 5, y0 - 7);
+  ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(167,139,250,.62)';
+  ctx.fillText('ms', x1 + 5, y0 - 7);
+
+  /* --- under-load band: samples taken while the line was saturated are not
+         idle samples, so the graph says so instead of lying by omission. */
+  const bx0 = X(t0 + (60 + TEST_FROM) * 1000), bx1 = X(t0 + (60 + TEST_TO) * 1000);
+  ctx.fillStyle = 'rgba(251,191,36,.05)';
+  ctx.fillRect(bx0, y0, bx1 - bx0, y1 - y0);
+  ctx.setLineDash([2, 3]); ctx.strokeStyle = 'rgba(251,191,36,.26)';
+  ctx.beginPath(); ctx.moveTo(bx0, y0); ctx.lineTo(bx0, y1); ctx.stroke(); ctx.setLineDash([]);
+  /* The saturated-link state is a legend chip, not a canvas caption: any caption
+     placed inside the pane eventually lands on a trace, and a state flag belongs
+     with the other state flags. The tinted band still marks the interval. */
+
+  /* --- fills first, additively: where download and upload overlap the colour
+         blends instead of one hiding the other. */
+  ctx.globalCompositeOperation = 'lighter';
+  for (const s of SERIES){
+    if (state.hidden.has(s.key) || !s.fill || s.key === 'jit') continue;
+    const pts = feed[s.key].filter(p => p[1] != null).map(p => [X(p[0]), Y(p[1], maxL)]);
+    if (pts.length < 2) continue;
+    const g = ctx.createLinearGradient(0, y0, 0, y1);
+    g.addColorStop(0, alpha(s.raw, .30)); g.addColorStop(1, alpha(s.raw, 0));
+    ctx.beginPath(); smoothPath(ctx, pts);
+    ctx.lineTo(pts[pts.length - 1][0], y1); ctx.lineTo(pts[0][0], y1); ctx.closePath();
+    ctx.fillStyle = g; ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  /* --- reference (peak-hold) lines for measured capacity */
+  ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+  ctx.strokeStyle = alpha('#4dd4ff', .38);
+  ctx.beginPath(); ctx.moveTo(x0, Y(REF.down / 8, maxL)); ctx.lineTo(x1, Y(REF.down / 8, maxL)); ctx.stroke();
+  ctx.strokeStyle = alpha('#34d399', .32);
+  ctx.beginPath(); ctx.moveTo(x0, Y(REF.up / 8, maxL)); ctx.lineTo(x1, Y(REF.up / 8, maxL)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  /* --- strokes: solid for throughput, dashed for latency so the three series
+         stay separable without relying on hue alone (colour-blind safe). */
+  for (const s of SERIES){
+    if (state.hidden.has(s.key)) continue;
+    const onL = (s.key === 'down' || s.key === 'up');
+    const maxY = onL ? maxL : maxR;
+    ctx.strokeStyle = s.raw; ctx.lineWidth = s.key === 'lat' ? 1.5 : 1.9;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    if (s.dash) ctx.setLineDash(s.dash);
+    ctx.shadowBlur = 6; ctx.shadowColor = alpha(s.raw, .45);
+    let run = [];
+    const flush = () => {
+      if (run.length > 1){ ctx.beginPath(); smoothPath(ctx, run); ctx.stroke(); }
+      run = [];
+    };
+    for (const p of feed[s.key]){
+      if (p[1] == null){ flush(); continue; }      // gap = honest, never interpolated
+      run.push([X(p[0]), Y(p[1], maxY)]);
+    }
+    flush();
+    ctx.setLineDash([]); ctx.shadowBlur = 0;
+  }
+
+  /* --- loss: a dropped probe has no value, so it owns its whole column as a
+         hairline. Never interpolated across, never averaged away. */
+  for (const p of feed.lat){
+    if (p[2] !== 1) continue;
+    const x = X(p[0]);
+    ctx.fillStyle = 'rgba(251,113,133,.34)';
+    ctx.fillRect(x - .75, y0 + 1, 1.5, y1 - y0 - 1);
+    ctx.fillStyle = '#fb7185';
+    ctx.beginPath(); ctx.arc(x, y0 + 3, 2, 0, 7); ctx.fill();
+  }
+  for (const s of SERIES){
+    if (state.hidden.has(s.key)) continue;
+    const arr = feed[s.key]; let p = null;
+    for (let i = arr.length - 1; i >= 0; i--) if (arr[i][1] != null){ p = arr[i]; break; }
+    if (!p) continue;
+    const onL = (s.key === 'down' || s.key === 'up');
+    const x = X(p[0]), y = Y(p[1], onL ? maxL : maxR);
+    ctx.beginPath(); ctx.arc(x, y, 5.5, 0, 7); ctx.fillStyle = alpha(s.raw, .22); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, 2.2, 0, 7); ctx.fillStyle = s.raw; ctx.fill();
+  }
+
+  /* --- time axis labels. Four ticks across the window; the minor ones are dimmer
+         so the eye still reads "-60s .. now" as the domain. */
+  ctx.font = '600 8px var(--mono)'; ctx.textAlign = 'center';
+  const TICKS = [-60, -45, -30, -15, 0];
+  for (const sec of TICKS){
+    const x = X(t0 + (60 + sec) * 1000);
+    const major = sec === -60 || sec === -30 || sec === 0;
+    ctx.fillStyle = major ? 'rgba(200,225,255,.42)' : 'rgba(200,225,255,.24)';
+    ctx.fillText(sec === 0 ? 'now' : `${sec}s`, x, y1 + 10);
+  }
+  ctx.textAlign = 'left';
+
+  /* --- crosshair + tooltip: the readout is exact for the hovered instant */
+  if (state.hoverX != null){
+    const hx = Math.max(x0, Math.min(state.hoverX, x1));
+    ctx.strokeStyle = 'rgba(200,225,255,.30)'; ctx.setLineDash([2, 2]);
+    ctx.beginPath(); ctx.moveTo(hx, y0); ctx.lineTo(hx, y1); ctx.stroke(); ctx.setLineDash([]);
+    const tAt = tMin + ((hx - x0) / (x1 - x0)) * (tMax - tMin);
+    const lines = SERIES.filter(s => !state.hidden.has(s.key)).map(s => {
+      let best = null, bd = 1e9;
+      for (const p of feed[s.key]){ if (p[1] == null) continue; const d = Math.abs(p[0] - tAt); if (d < bd){ bd = d; best = p; } }
+      return { s, v: best ? best[1] : null, x: X(best ? best[0] : tAt) };
+    });
+    for (const l of lines){
+      if (l.v == null) continue;
+      const onL = (l.s.key === 'down' || l.s.key === 'up');
+      const y = Y(l.v, onL ? maxL : maxR);
+      ctx.beginPath(); ctx.arc(l.x, y, 3, 0, 7); ctx.fillStyle = '#0a0f1a'; ctx.fill();
+      ctx.strokeStyle = l.s.raw; ctx.lineWidth = 1.2; ctx.stroke();
+    }
+    const bw = 74, bh = 13 + lines.length * 11;
+    const bx = Math.min(hx + 8, x1 - bw - 2), by = y0 + 4;
+    ctx.fillStyle = 'rgba(7,11,20,.88)'; ctx.strokeStyle = 'rgba(140,180,240,.28)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 5); ctx.fill(); ctx.stroke();
+    ctx.font = '600 8px var(--mono)';
+    ctx.fillStyle = 'rgba(200,225,255,.5)';
+    const secs = Math.round((tAt - tMin) / 1000) - 60;
+    ctx.fillText(secs === 0 ? 'now' : `${secs}s ago`, bx + 6, by + 10);
+    lines.forEach((l, i) => {
+      const y = by + 20 + i * 11;
+      ctx.fillStyle = l.s.raw; ctx.fillRect(bx + 6, y - 5, 5, 2.5);
+      ctx.fillStyle = 'rgba(200,225,255,.62)'; ctx.fillText(l.s.label, bx + 15, y);
+      ctx.fillStyle = '#eaf1ff'; ctx.textAlign = 'right';
+      ctx.fillText(l.v == null ? 'loss' : l.v.toFixed(1), bx + bw - 6, y); ctx.textAlign = 'left';
+    });
+  }
+  state.layout = { x0, x1, y0, y1, maxL, maxR, tMin, tMax };
+  /* Geometry probe: print the numbers a reviewer would otherwise have to OCR off
+     a screenshot, so gutter widths and text fits are verified, not eyeballed. */
+  if (Q.has('probe')){
+    const rightLabels = [0, 1, 2, 3, 4].map((i) => String(Math.round(maxR - (i / 4) * maxR)));
+    const leftLabels = [0, 1, 2, 3, 4].map((i) => String(Math.round(maxL - (i / 4) * maxL)));
+    const widest = (arr) => Math.max(...arr.map((s) => ctx.measureText(s).width));
+    console.log('PROBE ' + JSON.stringify({
+      size: `${w}x${h}`, plot: `${Math.round(x1 - x0)}x${Math.round(y1 - y0)}`,
+      winRect: (() => { const r = win.getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)} @${Math.round(r.left)},${Math.round(r.top)}`; })(),
+      heroRect: (() => { const r = document.getElementById('hero').getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}`; })(),
+      graphRect: (() => { const r = document.getElementById('graphsec').getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}`; })(),
+      stripRect: (() => { const r = document.getElementById('strip').getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}`; })(),
+      /* Zero means every chip fits. Non-zero means the row is silently clipping
+         its last chip, which is how "Top ci" shipped in the first draft. */
+      stripOverflowPx: +(document.getElementById('strip').scrollWidth - document.getElementById('strip').clientWidth).toFixed(1),
+      heroOverflowPx: +(document.getElementById('hero').scrollWidth - document.getElementById('hero').clientWidth).toFixed(1),
+      legendOverflowPx: +(document.getElementById('legend').scrollWidth - document.getElementById('legend').clientWidth).toFixed(1),
+      leftGutter: padL, rightGutter: padR, maxL, maxR,
+      leftLabels, rightLabels,
+      leftLabelWidestPx: +widest(leftLabels).toFixed(1), rightLabelWidestPx: +widest(rightLabels).toFixed(1),
+      rightLabelFits: widest(rightLabels) + 5 <= padR,
+      leftLabelFits: widest(leftLabels) + 5 <= padL,
+      headline: { down: HEAD.down.toFixed(1), up: HEAD.up.toFixed(1), lat: HEAD.lat.toFixed(1),
+                  jit: HEAD.jit.toFixed(1), lossPct: LOSS_PCT.toFixed(1) },
+      seriesVisible: SERIES.filter((s) => !state.hidden.has(s.key)).map((s) => s.key),
+    }));
+  }
+}
+
+/* ------------------------------------------------------------------- legend */
+const legend = document.getElementById('legend');
+function buildLegend(){
+  legend.innerHTML = '';
+  for (const s of SERIES){
+    const last = [...feed[s.key]].reverse().find(p => p[1] != null);
+    const b = document.createElement('span');
+    b.className = 'lg' + (s.dash ? ' dash' : '');
+    b.style.setProperty('--c', s.color);
+    b.innerHTML = `<span class="sw"></span>${s.label} <span class="val">${last ? last[1].toFixed(1) : '—'}</span>`;
+    b.onclick = () => { state.hidden.has(s.key) ? state.hidden.delete(s.key) : state.hidden.add(s.key); buildLegend(); draw(); };
+    if (state.hidden.has(s.key)) b.classList.add('off');
+    legend.appendChild(b);
+  }
+}
+/* `?hide=up,lat` demonstrates legend isolation in a static shot. */
+if (Q.has('hide')){
+  Q.get('hide').split(',').forEach((k) => state.hidden.add(k));
+}
+if (FOURTH) document.getElementById('hero').classList.add('v4');
+buildLegend();
+/* The saturation state rides in the legend row with the other state flags, so it
+   is added after buildLegend() (which owns that container's innerHTML). */
+if (Q.get('end') !== 'never'){
+  legend.insertAdjacentHTML('beforeend',
+    '<span class="lg state" style="--c:#fbbf24"><span class="sw band"></span>saturated link</span>');
+}
+
+/* -------------------------------------------------------------- hero numbers */
+/* Sub-line density is chosen per size so nothing ever truncates: a readout that
+   ends in "…" is a readout the user cannot trust. */
+const SUB = MODE === 'compact' ? 'min' : MODE === 'expanded' ? 'full' : 'mid';
+function paintHero(){
+  const fmt1 = (v) => (v == null ? '—' : v >= 100 ? v.toFixed(0) : v.toFixed(1));
+  const mbs = (v) => (v == null ? '—' : v / 8 >= 100 ? (v / 8).toFixed(0) : (v / 8).toFixed(2));
+  const set = (id, v) => { document.getElementById(id).textContent = v; };
+
+  set('v-down', fmt1(HEAD.down));
+  set('s-down', SUB === 'min' ? `live · ${mbs(HEAD.down)} MB/s`
+    : `live · ${mbs(HEAD.down)} MB/s${SUB === 'full' ? ` · peak ${REF.down.toFixed(0)}` : ''}`);
+  set('v-up', fmt1(HEAD.up));
+  set('s-up', SUB === 'min' ? `live · ${mbs(HEAD.up)} MB/s`
+    : `live · ${mbs(HEAD.up)} MB/s${SUB === 'full' ? ` · test ${REF.up.toFixed(0)}` : ''}`);
+
+  set('v-lat', HEAD.lat == null ? '—' : HEAD.lat.toFixed(1));
+  const bits = [`avg ${HEAD.latAvg.toFixed(1)}`, `jit ${HEAD.jit.toFixed(1)}`];
+  if (SUB === 'full' && LOSS_PCT > 0) bits.push(`${LOSS_PCT.toFixed(1)}% loss`);
+  set('s-lat', bits.join(' · '));
+
+  if (FOURTH){
+    set('v-jit', HEAD.jit.toFixed(1));
+    set('s-jit', `σ ${HEAD.jitSd.toFixed(1)} · p95 ${HEAD.jitP95.toFixed(1)}`);
+    document.getElementById('h-fourth').style.display = '';
+  }
+  // "busy" uses the same 1 Mbps floor the shipped gadget uses to call a link busy.
+  for (const [id, v] of [['h-down', HEAD.down], ['h-up', HEAD.up]]){
+    if (v != null && v >= 1) document.getElementById(id).classList.add('busy');
+  }
+}
+paintHero();
+
+/* ------------------------------------------------------------------ annotation */
+if (ANNOT){
+  document.getElementById('state').textContent = 'blueprint';
+  const ann = document.getElementById('annot');
+  const w = win.getBoundingClientRect();
+  const marks = [
+    [0, 26, 'titlebar 26 px · drag region · 6 actions', 'top:1px;left:8px'],
+    [26, 71, 'hero row — live values, colour-coded to its graph series', 'top:29px;left:8px'],
+    [97, 149, 'overlapping graph — ONE transparent canvas, 3 series, dual axis', 'top:100px;left:8px'],
+    [246, 26, 'micro strip — quality · DNS · bufferbloat · util · MTU', 'top:222px;left:8px'],
+  ];
+  for (const [top, h, label, style] of marks){
+    const m = document.createElement('div');
+    m.className = 'measure'; m.dataset.l = `${h} px`;
+    m.style.cssText = `left:4px;right:4px;top:${top + h / 2}px`;
+    ann.appendChild(m);
+    const t = document.createElement('div');
+    t.className = 'tag'; t.style.cssText = `${style};font-size:8px`;
+    t.textContent = label;
+    ann.appendChild(t);
+  }
+  const notes = [
+    ['cy', 'series-down #4dd4ff · solid 1.9px + additive fill', 'bottom:118px;left:6px'],
+    ['', 'series-up #34d399 · solid + additive fill (blends where it overlaps)', 'bottom:92px;left:6px'],
+    ['', 'series-lat #a78bfa · dashed 3/3, right axis, no fill', 'bottom:66px;left:6px'],
+    ['', 'loss: gap + hairline column (never interpolated)', 'bottom:40px;left:6px'],
+    ['cy', 'peak-hold 940 Mbps — last measured test result', 'bottom:14px;left:6px'],
+  ];
+  for (const [cls, txt, style] of notes){
+    const t = document.createElement('div');
+    t.className = 'tag ' + cls; t.style.cssText = `${style};font-size:8px;opacity:.95`;
+    t.textContent = txt;
+    ann.appendChild(t);
+  }
+  const spec = document.createElement('div');
+  spec.className = 'spec';
+  spec.innerHTML = `
+    <h4>Window</h4>
+    <table>
+      <tr><td>compact</td><td>396 × 200 — hero + graph only (old footprint +22 px)</td></tr>
+      <tr><td>standard</td><td>460 × 272 — default (shown left)</td></tr>
+      <tr><td>expanded</td><td>560 × 340 — adds jitter series + micro strip</td></tr>
+      <tr><td>frame</td><td>frameless, always-on-top, <code>transparent:true</code>, radius 14</td></tr>
+      <tr><td>fallback</td><td><code>transparent:false</code> → opaque shell, radius 10</td></tr>
+      <tr><td>rows</td><td><code>26px</code> bar · <code>auto</code> hero · <code>1fr</code> graph · <code>auto</code> strip</td></tr>
+    </table>
+    <h4>Graph</h4>
+    <table>
+      <tr><td>canvas</td><td>one <code>&lt;canvas&gt;</code>, <code>clearRect</code> — no background fill</td></tr>
+      <tr><td>overlap</td><td>fills composited with <code>globalCompositeOperation:'lighter'</code>, alpha .30 → 0</td></tr>
+      <tr><td>left axis</td><td>Mbps, auto max snapped to 1·2·5 ×10ⁿ, EMA λ .22 (no axis thrash)</td></tr>
+      <tr><td>right axis</td><td>ms, independent scale, own grid labels</td></tr>
+      <tr><td>x domain</td><td>real timestamps (ms), 60 s window → dropped samples show as gaps</td></tr>
+      <tr><td>loss</td><td>gap in the trace + red tick; never interpolated</td></tr>
+      <tr><td>reference</td><td>dashed peak-hold line = last measured test result</td></tr>
+      <tr><td>hover</td><td>crosshair + exact per-series readout at that instant</td></tr>
+      <tr><td>budget</td><td>≤ 3 ms/frame @60 Hz; redraw only on new sample (1 Hz) + hover</td></tr>
+    </table>
+    <h4>Series tokens <span style="color:#7d8caa">(new)</span></h4>
+    <table>
+      <tr><td><span class="sw2" style="background:#4dd4ff"></span>down</td><td><code>--series-down #4dd4ff</code> solid 1.9px + fill</td></tr>
+      <tr><td><span class="sw2" style="background:#34d399"></span>up</td><td><code>--series-up #34d399</code> solid 1.9px + fill</td></tr>
+      <tr><td><span class="sw2" style="background:#a78bfa"></span>latency</td><td><code>--series-lat #a78bfa</code> dashed 3/3, right axis</td></tr>
+      <tr><td><span class="sw2" style="background:#fbbf24"></span>jitter</td><td><code>--series-jit #fbbf24</code> dotted 1/3 (expanded only)</td></tr>
+      <tr><td><span class="sw2" style="background:#fb7185"></span>loss</td><td><code>--bad #fb7185</code> markers</td></tr>
+    </table>
+    <h4>Legend / isolation</h4>
+    <table>
+      <tr><td>click chip</td><td>toggles that series only; others keep drawing</td></tr>
+      <tr><td>colour-blind</td><td>hue + dash pattern + legend label = 3 independent cues</td></tr>
+      <tr><td>reduced motion</td><td>honours <code>NP.motionScale()</code> — glow/anim off at 0</td></tr>
+    </table>`;
+  document.body.appendChild(spec);
+}
+if (Q.has('hover')){
+  const r = cv.getBoundingClientRect();
+  state.hoverX = r.width * 0.42;
+}
+window.addEventListener('resize', () => { if (!ANNOT) draw(); });
+requestAnimationFrame(draw);
+setTimeout(draw, 60);
+</script>
+</body>
+</html>

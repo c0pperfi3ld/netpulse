@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'" />
+<title>NetPulse</title>
+<link rel="stylesheet" href="styles/tokens.css" />
+<link rel="stylesheet" href="styles/app.css" />
+</head>
+<body data-view="overview">
+  <div class="shell">
+    <header class="titlebar" id="titlebar">
+      <div class="tb-left">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-pulse"></span>
+          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 12h4l2.5-6 4 12 2.5-6h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="tb-title">
+          <strong>NetPulse</strong>
+          <span id="tb-subtitle" class="muted">starting…</span>
+        </div>
+      </div>
+      <div class="tb-center" id="hud">
+        <div class="chip" data-chip="link"><span class="chip-k">Link</span><span class="chip-v" id="chip-link">—</span></div>
+        <div class="chip" data-chip="ip"><span class="chip-k">IP / ISP</span><span class="chip-v" id="chip-isp">—</span></div>
+        <div class="chip" data-chip="rate"><span class="chip-k">Link now</span><span class="chip-v" id="chip-rate">—</span></div>
+        <div class="chip" data-chip="mtu"><span class="chip-k">MTU</span><span class="chip-v" id="chip-mtu">—</span></div>
+        <div class="chip" data-chip="overhead"><span class="chip-k">Overhead</span><span class="chip-v" id="chip-overhead">—</span></div>
+      </div>
+      <div class="tb-right">
+        <button class="tb-btn" id="btn-gadget" title="Gadget mode (Ctrl+G)">⧉</button>
+        <button class="tb-btn" id="btn-pause" title="Pause / resume sampling">⏸</button>
+        <button class="tb-btn win-min" data-win="minimize" title="Minimize to gadget">–</button>
+        <button class="tb-btn win-max" data-win="maximize" title="Maximize">▢</button>
+        <button class="tb-btn win-close" data-win="close" title="Close">✕</button>
+      </div>
+    </header>
+
+    <div class="body">
+      <nav class="rail" aria-label="Views">
+        <button class="rail-item" data-nav="overview"><span class="ic">◎</span><span>Overview</span></button>
+        <button class="rail-item" data-nav="throughput"><span class="ic">⇅</span><span>Throughput</span></button>
+        <button class="rail-item" data-nav="latency"><span class="ic">⌁</span><span>Latency</span></button>
+        <button class="rail-item" data-nav="diagnostics"><span class="ic">⚙</span><span>Diagnostics</span></button>
+        <button class="rail-item" data-nav="settings"><span class="ic">≡</span><span>Settings</span></button>
+        <div class="rail-spacer"></div>
+        <div class="rail-quick">
+          <button class="btn primary sm" id="rail-test">Run speed test</button>
+          <button class="btn sm" id="rail-bb">Bufferbloat</button>
+          <button class="btn sm" id="rail-report">Report</button>
+        </div>
+      </nav>
+
+      <main class="view-root" id="view-root" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <!-- Gadget mode: one always-on-top strip with download, upload and latency.
+       The dashboard stays mounted underneath so nothing restarts on the swap. -->
+  <section class="gadget" id="gadget" aria-label="NetPulse gadget" hidden data-size="standard">
+    <div class="g-card">
+      <header class="g-bar" id="g-drag">
+        <span class="g-dot" id="g-dot" aria-hidden="true"></span>
+        <strong class="g-name">NetPulse</strong>
+        <span class="g-pill" id="g-state">live</span>
+        <span class="g-tip" id="g-tip">hover the graph for exact values · click a chip to isolate a series</span>
+        <div class="g-actions">
+          <button class="g-btn" id="g-test" title="Run speed test">⇅</button>
+          <button class="g-btn" id="g-pause" title="Pause / resume">⏸</button>
+          <button class="g-btn" id="g-pin" title="Keep this window on top">⌖</button>
+          <button class="g-btn" id="g-size" title="Size: compact → standard → expanded">▤</button>
+          <button class="g-btn" id="g-expand" title="Back to dashboard">⤢</button>
+          <button class="g-btn g-close" id="g-close" title="Close">✕</button>
+        </div>
+      </header>
+
+      <div class="g-hero" id="g-hero">
+        <div class="g-cell" data-tone="down" id="g-cell-down" title="Click to toggle MB/s ↔ Mbps">
+          <span class="g-k">Download</span>
+          <span class="g-v" id="g-down">—</span>
+          <span class="g-u" id="g-down-u">MB/s</span>
+          <span class="g-sub" id="g-down-sub">no test yet</span>
+        </div>
+        <div class="g-cell" data-tone="up" id="g-cell-up" title="Click to toggle MB/s ↔ Mbps">
+          <span class="g-k">Upload</span>
+          <span class="g-v" id="g-up">—</span>
+          <span class="g-u" id="g-up-u">MB/s</span>
+          <span class="g-sub" id="g-up-sub">no test yet</span>
+        </div>
+        <div class="g-cell" data-tone="lat">
+          <span class="g-k">Latency</span>
+          <span class="g-v" id="g-lat">—</span>
+          <span class="g-u" id="g-lat-u">ms</span>
+          <span class="g-sub" id="g-lat-sub">jitter —</span>
+        </div>
+        <div class="g-jit" data-tone="jit" aria-hidden="false">
+          <span class="g-k">Jitter</span>
+          <span class="g-v" id="g-jit">—</span>
+          <span class="g-u">ms</span>
+          <span class="g-sub" id="g-jit-sub">σ — · p95 —</span>
+        </div>
+      </div>
+
+      <div class="g-graph" id="g-graph">
+        <canvas class="g-pulse" id="g-pulse" aria-hidden="true"></canvas>
+        <div class="g-legend" id="g-legend"></div>
+        <div class="g-readout" id="g-readout" hidden></div>
+      </div>
+
+      <div class="g-strip" id="g-strip">
+        <span class="g-chip" data-chip="quality"><i class="g-ring" id="g-ring"></i>Quality <b id="g-quality">—</b></span>
+        <span class="g-chip" data-chip="dns">DNS <b id="g-dns">—</b></span>
+        <span class="g-chip" data-chip="bloat">Bufferbloat <b id="g-bloat">—</b></span>
+        <span class="g-chip" data-chip="util">Link <b id="g-util">—</b></span>
+        <span class="g-chip g-opt" data-chip="peak">Peak <b id="g-peak">—</b></span>
+        <span class="g-chip g-opt" data-chip="top">Top app <b id="g-top">—</b></span>
+      </div>
+    </div>
+  </section>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <strong id="modal-title">Report</strong>
+        <div class="modal-actions">
+          <button class="btn sm" id="modal-copy">Copy</button>
+          <button class="btn sm" id="modal-save">Save .md</button>
+          <button class="btn sm" id="modal-open">Open folder</button>
+          <button class="btn sm" id="modal-close">Close</button>
+        </div>
+      </div>
+      <pre class="modal-body" id="modal-body"></pre>
+    </div>
+  </div>
+
+  <script src="js/util.js"></script>
+  <script src="js/springs.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/gadget.js"></script>
+  <script src="js/views/overview.js"></script>
+  <script src="js/views/throughput.js"></script>
+  <script src="js/views/latency.js"></script>
+  <script src="js/views/diagnostics.js"></script>
+  <script src="js/views/settings.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+/* Design tokens. Dark-first, glass panels, one accent hue driven by data-accent. */
+:root {
+  --bg-0: #05080f;
+  --bg-1: #070b14;
+  --bg-2: #0b1220;
+  --panel: rgba(18, 26, 43, 0.62);
+  --panel-strong: rgba(22, 32, 52, 0.86);
+  --panel-brd: rgba(120, 160, 220, 0.14);
+  --panel-brd-strong: rgba(140, 180, 240, 0.26);
+  --txt-0: #eaf1ff;
+  --txt-1: #b7c6e0;
+  --txt-2: #7d8caa;
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --bad: #fb7185;
+  --line: rgba(120, 160, 220, 0.12);
+  --grid: rgba(120, 160, 220, 0.10);
+
+  --accent: #4dd4ff;
+  --accent-soft: rgba(77, 212, 255, 0.14);
+  --accent-glow: rgba(77, 212, 255, 0.42);
+
+  /* Canvas ink. Charts read these at draw time, so a theme flip reaches the
+     canvas instead of leaving light-themed labels invisible on white. */
+  --chart-ink: #eaf1ff;
+  --chart-ink-dim: rgba(200, 225, 255, 0.50);
+  --chart-ink-faint: rgba(200, 225, 255, 0.28);
+  --chart-axis: rgba(120, 160, 220, 0.14);
+  --chart-axis-major: rgba(200, 225, 255, 0.30);
+  --chart-axis-minor: rgba(200, 225, 255, 0.14);
+  --chart-fill: rgba(120, 160, 220, 0.10);
+
+  /* Live-graph series inks. Hue + dash pattern + legend label give three
+     independent cues, so the overlapping traces stay separable without relying
+     on colour vision. Re-tuned per theme below by the theme blocks. */
+  --series-down: #4dd4ff;
+  --series-up: #34d399;
+  --series-lat: #a78bfa;
+  --series-jit: #fbbf24;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --sp-1: 3px;
+  --sp-2: 6px;
+  --sp-3: 9px;
+  --sp-4: 12px;
+  --sp-5: 16px;
+  --sp-6: 22px;
+  --fs-xs: 10.5px;
+  --fs-sm: 11.5px;
+  --fs-md: 12.5px;
+  --fs-lg: 15px;
+  --fs-xl: 19px;
+  --fs-hero: clamp(26px, 2.9vw, 50px);
+  --fs-hero-sm: clamp(20px, 2.2vw, 34px);
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+  --sans: "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, sans-serif;
+  --shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+  --dur: 220ms;
+
+  /* Surfaces exist as tokens so a theme can flip them wholesale. */
+  --surface-0: rgba(12, 18, 31, 0.94);
+  --surface-0b: rgba(8, 12, 21, 0.84);
+  --surface-1: rgba(10, 15, 26, 0.72);
+  --surface-1b: rgba(8, 12, 21, 0.45);
+  --surface-2: rgba(10, 16, 28, 0.55);
+  --surface-3: rgba(16, 24, 40, 0.72);
+  --surface-3h: rgba(26, 38, 60, 0.90);
+  --field: rgba(9, 14, 24, 0.80);
+}
+
+/* --- Light theme ------------------------------------------------------- */
+body[data-theme="light"] {
+  --bg-0: #eef3fa;
+  --bg-1: #e7eefa;
+  --bg-2: #ffffff;
+  --panel: rgba(255, 255, 255, 0.76);
+  --panel-strong: rgba(255, 255, 255, 0.96);
+  --panel-brd: rgba(18, 38, 72, 0.13);
+  --panel-brd-strong: rgba(18, 38, 72, 0.24);
+  --txt-0: #0a1524;
+  --txt-1: #28374d;
+  --txt-2: #5b6b85;
+  --line: rgba(18, 38, 72, 0.12);
+  --grid: rgba(18, 38, 72, 0.09);
+  --surface-0: rgba(255, 255, 255, 0.96);
+  --surface-0b: rgba(255, 255, 255, 0.88);
+  --surface-1: rgba(255, 255, 255, 0.74);
+  --surface-1b: rgba(255, 255, 255, 0.52);
+  --surface-2: rgba(255, 255, 255, 0.74);
+  --surface-3: rgba(255, 255, 255, 0.94);
+  --surface-3h: rgba(234, 243, 255, 0.99);
+  --field: rgba(255, 255, 255, 0.98);
+  --ok: #0f9d63;
+  --warn: #a86900;
+  --bad: #d43b53;
+  --shadow: 0 14px 34px rgba(20, 40, 80, 0.14);
+  --chart-ink: #0a1524;
+  --chart-ink-dim: rgba(12, 26, 48, 0.62);
+  --chart-ink-faint: rgba(12, 26, 48, 0.38);
+  --chart-axis: rgba(18, 38, 72, 0.16);
+  --chart-axis-major: rgba(18, 38, 72, 0.34);
+  --chart-axis-minor: rgba(18, 38, 72, 0.16);
+  --chart-fill: rgba(18, 38, 72, 0.07);
+}
+
+body[data-accent="violet"] { --accent: #a78bfa; --accent-soft: rgba(167,139,250,0.14); --accent-glow: rgba(167,139,250,0.42); }
+body[data-accent="emerald"] { --accent: #34d399; --accent-soft: rgba(52,211,153,0.14); --accent-glow: rgba(52,211,153,0.42); }
+body[data-accent="amber"] { --accent: #fbbf24; --accent-soft: rgba(251,191,36,0.14); --accent-glow: rgba(251,191,36,0.42); }
+body[data-accent="rose"] { --accent: #fb7185; --accent-soft: rgba(251,113,133,0.14); --accent-glow: rgba(251,113,133,0.42); }
+
+body[data-density="compact"] { --sp-4: 11px; --sp-5: 15px; --sp-6: 20px; --fs-hero: clamp(30px, 4vw, 56px); }
+
+/* Motion intensity: 0 kills every transition and animation (also respects the OS setting). */
+body[data-anim="0"] * { transition: none !important; animation: none !important; }
+body[data-anim="0"] .glow, body[data-anim="0"] .pulse { display: none !important; }
